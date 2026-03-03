@@ -1,0 +1,119 @@
+{% extends "base.html" %} {% block title %}Products{% endblock %} {% block
+page_title %}Product Management{% endblock %} {% block page_subtitle %}Add,
+edit, and remove products{% endblock %} {% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <input
+    type="text"
+    id="prodSearch"
+    class="form-control"
+    placeholder="🔍 Search products..."
+    style="max-width: 260px"
+  />
+  <a
+    href="{{ url_for('add_product') }}"
+    class="btn btn-success-custom text-white"
+  >
+    <i
+      class="material-icons-round"
+      style="font-size: 16px; vertical-align: middle"
+      >add_circle</i
+    >
+    Add Product
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="prodTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Barcode</th>
+            <th>Category</th>
+            <th>Expiry Date</th>
+            <th>Days Left</th>
+            <th>Qty</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+          <tr
+            class="{% if p.status=='Safe' %}row-safe{% elif p.status=='Near-Expiry' %}row-near{% else %}row-expired{% endif %}"
+          >
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ p.name }}</strong></td>
+            <td><code style="font-size: 11px">{{ p.barcode }}</code></td>
+            <td>{{ p.category }}</td>
+            <td>{{ p.exp_date }}</td>
+            <td>
+              <span
+                class="days-text {% if p.days_remaining < 0 %}text-expired {% elif p.days_remaining <= 30 %}text-near {% else %}text-safe{% endif %}"
+              >
+                {% if p.days_remaining < 0 %} {{ (p.days_remaining * -1) }}d ago
+                {% elif p.days_remaining == 0 %} TODAY {% else %} {{
+                p.days_remaining }}d {% endif %}
+              </span>
+            </td>
+            <td>{{ p.quantity }} {{ p.unit }}</td>
+            <td>
+              {% if p.status == 'Safe' %}<span class="badge-safe">Safe</span> {%
+              elif p.status == 'Near-Expiry' %}<span class="badge-near"
+                >Near</span
+              >
+              {% else %}<span class="badge-expired">Expired</span>{% endif %}
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                <a
+                  href="{{ url_for('edit_product', pid=p.id) }}"
+                  class="btn btn-sm"
+                  style="
+                    background: rgba(67, 97, 238, 0.1);
+                    color: var(--primary);
+                    border-radius: 8px;
+                  "
+                >
+                  <i class="material-icons-round" style="font-size: 15px"
+                    >edit</i
+                  >
+                </a>
+                <a
+                  href="{{ url_for('delete_product', pid=p.id) }}"
+                  class="btn btn-sm"
+                  style="
+                    background: rgba(239, 71, 111, 0.1);
+                    color: var(--danger);
+                    border-radius: 8px;
+                  "
+                  onclick="return confirm('Delete this product?');"
+                >
+                  <i class="material-icons-round" style="font-size: 15px"
+                    >delete</i
+                  >
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %} {% block extra_js %}
+<script>
+  document.getElementById("prodSearch").addEventListener("input", function () {
+    const val = this.value.toLowerCase();
+    const rows = document.querySelectorAll("#prodTable tbody tr");
+    rows.forEach((r) => {
+      r.style.display = r.textContent.toLowerCase().includes(val) ? "" : "none";
+    });
+  });
+</script>
+{% endblock %}

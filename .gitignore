@@ -1,0 +1,33 @@
+```
+```
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Database (don't upload your local DB)
+*.db
+*.sqlite3
+
+# VS Code
+.vscode/
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Environment variables
+.env
+*.env
+```
+```

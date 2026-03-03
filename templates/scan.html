@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+{% block title %}Scan Product{% endblock %}
+{% block page_title %}Barcode / QR Scanner{% endblock %}
+{% block page_subtitle %}Scan a product or search manually{% endblock %}
+
+{% block content %}
+
+<div class="scanner-container">
+
+  <!-- Tabs -->
+  <ul class="nav nav-pills mb-4 gap-2">
+    <li class="nav-item">
+      <a class="nav-link active" href="#" id="tabCamera"
+         onclick="switchTab('camera'); return false;">
+        <i class="material-icons-round"
+           style="font-size:16px;vertical-align:middle">camera_alt</i>
+        Camera Scan
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="#" id="tabManual"
+         onclick="switchTab('manual'); return false;">
+        <i class="material-icons-round"
+           style="font-size:16px;vertical-align:middle">search</i>
+        Manual Search
+      </a>
+    </li>
+  </ul>
+
+  <!-- Camera Panel -->
+  <div id="cameraPanel">
+    <div class="card mb-4">
+      <div class="card-body p-3">
+
+        <!-- Debug Box -->
+        <div id="debugBox" style="
+            background:#1e1e2e;
+            color:#00e5ff;
+            font-family:monospace;
+            font-size:12px;
+            padding:12px;
+            border-radius:10px;
+            margin-bottom:12px;
+            min-height:40px;">
+          Waiting to start...
+        </div>
+
+        <!-- Scanner Box -->
+        <div class="scanner-box mb-3" id="scannerBox">
+          <div id="interactive" class="viewport"></div>
+          <div class="scanner-overlay">
+            <div class="scan-frame"><span></span></div>
+            <div class="scan-line"></div>
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="d-flex gap-2 justify-content-center flex-wrap">
+          <button id="startBtn"
+                  class="btn btn-primary-custom"
+                  onclick="startScanner()">
+            <i class="material-icons-round"
+               style="font-size:16px;vertical-align:middle">play_circle</i>
+            Start Camera
+          </button>
+          <button id="stopBtn"
+                  class="btn btn-outline-secondary"
+                  onclick="stopScanner()"
+                  style="border-radius:10px;display:none">
+            <i class="material-icons-round"
+               style="font-size:16px;vertical-align:middle">stop_circle</i>
+            Stop
+          </button>
+          <button class="btn btn-outline-secondary"
+                  onclick="testWithSampleBarcode()"
+                  style="border-radius:10px;">
+            🧪 Test Sample Barcode
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual Search Panel -->
+  <div id="manualPanel" style="display:none">
+    <div class="card mb-4">
+      <div class="card-body p-4">
+        <label style="font-weight:600;margin-bottom:8px;display:block">
+          Search by Product Name or Barcode
+        </label>
+        <div class="d-flex gap-2">
+          <input type="text"
+                 id="searchInput"
+                 class="form-control"
+                 placeholder="e.g. Paracetamol or 8901030874543"
+                 onkeyup="if(event.key==='Enter') searchProduct()">
+          <button class="btn btn-primary-custom"
+                  onclick="searchProduct()">
+            <i class="material-icons-round"
+               style="font-size:16px;vertical-align:middle">search</i>
+            Search
+          </button>
+        </div>
+        <div id="searchResults" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Card -->
+  <div id="resultSection" style="display:none">
+    <h6 style="font-weight:700;margin-bottom:12px;color:var(--text-muted)">
+      <i class="material-icons-round"
+         style="font-size:16px;vertical-align:middle">info</i>
+      Scan Result
+    </h6>
+    <div id="resultCard" class="result-card"></div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+
+<script>
+
+var codeReader    = null;
+var scanning      = false;
+var lastCode      = '';
+var debounceTimer = null;
+
+// ── Debug logger ──────────────────────────────────────────────
+function debugLog(msg) {
+    var box  = document.getElementById('debugBox');
+    var time = new Date().toLocaleTimeString();
+    box.innerHTML = '[' + time + '] ' + msg;
+    console.log(msg);
+}
+
+// ── Tab switching ─────────────────────────────────────────────
+function switchTab(tab) {
+    if (tab === 'camera') {
+        document.getElementById('cameraPanel').style.display = 'block';
+        document.getElementById('manualPanel').style.display = 'none';
+        document.getElementById('tabCamera').classList.add('active');
+        document.getElementById('tabManual').classList.remove('active');
+    } else {
+        document.getElementById('cameraPanel').style.display = 'none';
+        document.getElementById('manualPanel').style.display = 'block';
+        document.getElementById('tabCamera').classList.remove('active');
+        document.getElementById('tabManual').classList.add('active');
+        stopScanner();
+    }
+}
+
+// ── Start Scanner ─────────────────────────────────────────────
+function startScanner() {
+    if (scanning) {
+        debugLog('⚠️ Already scanning');
+        return;
+    }
+
+    debugLog('📷 Starting camera...');
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display  = 'inline-flex';
+
+    // Replace the video div with a plain video element
+    var viewport = document.getElementById('interactive');
+    viewport.innerHTML = '';
+    var video = document.createElement('video');
+    video.id             = 'zxingVideo';
+    video.style.width    = '100%';
+    video.style.height   = '100%';
+    video.style.objectFit= 'cover';
+    viewport.appendChild(video);
+
+    try {
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        debugLog('✅ ZXing library loaded');
+
+        // Get list of cameras first
+        codeReader.listVideoInputDevices()
+        .then(function(devices) {
+            debugLog('📷 Found ' + devices.length + ' camera(s)');
+
+            if (devices.length === 0) {
+                debugLog('❌ No camera found!');
+                resetButtons();
+                return;
+            }
+
+            // Log all cameras for debugging
+            devices.forEach(function(d, i) {
+                console.log('Camera ' + i + ': ' + d.label);
+            });
+
+            // Pick best camera
+            var deviceId = devices[0].deviceId;
+            devices.forEach(function(d) {
+                var lbl = d.label.toLowerCase();
+                if (lbl.includes('back') ||
+                    lbl.includes('rear') ||
+                    lbl.includes('environment')) {
+                    deviceId = d.deviceId;
+                }
+            });
+
+            scanning = true;
+            debugLog('🟢 Camera ON — point barcode at camera, hold 15-20cm away and KEEP STILL');
+
+            // Start scanning
+            codeReader.decodeFromVideoDevice(
+                deviceId,
+                'zxingVideo',
+                function(result, err) {
+                    if (result) {
+                        var code = result.getText();
+
+                        // Avoid duplicate
+                        if (code === lastCode) return;
+                        clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(function() {
+                            lastCode = '';
+                        }, 3000);
+                        lastCode = code;
+
+                        debugLog('✅ SCANNED: ' + code + ' — fetching product...');
+
+                        // Flash green
+                        var box = document.getElementById('scannerBox');
+                        box.style.border    = '4px solid #06d6a0';
+                        box.style.boxShadow = '0 0 40px rgba(6,214,160,0.7)';
+                        setTimeout(function() {
+                            box.style.border    = '2px solid rgba(67,97,238,0.4)';
+                            box.style.boxShadow = '';
+                        }, 2000);
+
+                        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                        fetchProduct(code);
+                    }
+
+                    // Only log real errors (not "not found" which is normal)
+                    if (err &&
+                        !(err instanceof ZXing.NotFoundException) &&
+                        !(err.name === 'NotFoundException')) {
+                        console.warn('Scan error:', err.message);
+                    }
+                }
+            );
+        })
+        .catch(function(err) {
+            console.error('Camera list error:', err);
+            if (err.name === 'NotAllowedError') {
+                debugLog('❌ Camera BLOCKED! Click 🔒 lock in address bar → Allow Camera → Refresh');
+            } else {
+                debugLog('❌ Camera error: ' + err.message);
+            }
+            resetButtons();
+        });
+
+    } catch(e) {
+        debugLog('❌ ZXing error: ' + e.message);
+        console.error(e);
+        resetButtons();
+    }
+}
+
+// ── Stop Scanner ──────────────────────────────────────────────
+function stopScanner() {
+    if (codeReader) {
+        try { codeReader.reset(); } catch(e) {}
+        codeReader = null;
+    }
+    scanning  = false;
+    lastCode  = '';
+    resetButtons();
+    debugLog('🔴 Camera stopped.');
+}
+
+function resetButtons() {
+    document.getElementById('startBtn').style.display = 'inline-flex';
+    document.getElementById('stopBtn').style.display  = 'none';
+}
+
+// ── Test button ───────────────────────────────────────────────
+function testWithSampleBarcode() {
+    debugLog('🧪 Testing with Paracetamol barcode...');
+    fetchProduct('8901030874543');
+}
+
+// ── Fetch product from Flask API ──────────────────────────────
+function fetchProduct(barcode) {
+    debugLog('🔎 Searching: ' + barcode);
+
+    document.getElementById('resultSection').style.display = 'block';
+    document.getElementById('resultCard').innerHTML =
+        '<div class="text-center py-3">' +
+        '<div style="font-size:36px">⏳</div>' +
+        '<p style="margin-top:8px">Searching for: <strong>' +
+        barcode + '</strong></p></div>';
+
+    fetch('/api/product/' + barcode)
+        .then(function(r) {
+            if (!r.ok) throw new Error('Server error ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                debugLog('✅ Found: ' + data.product.name);
+                showResult(data.product);
+            } else {
+                debugLog('❌ Barcode ' + barcode + ' not in database. Add it first!');
+                document.getElementById('resultCard').innerHTML =
+                    '<div class="text-center py-4">' +
+                    '<div style="font-size:48px">🔍</div>' +
+                    '<h5 style="margin-top:12px">Product Not Found</h5>' +
+                    '<p style="color:var(--text-muted)">Scanned barcode: ' +
+                    '<code>' + barcode + '</code></p>' +
+                    '<p style="color:var(--text-muted)">Add this product to ' +
+                    'your database first.</p>' +
+                    '<a href="/products/add" ' +
+                    'class="btn btn-success-custom text-white mt-2">' +
+                    '+ Add This Product</a></div>';
+            }
+        })
+        .catch(function(err) {
+            debugLog('❌ Error: ' + err.message);
+            document.getElementById('resultCard').innerHTML =
+                '<div class="text-center py-4"><div style="font-size:48px">' +
+                '❌</div><h5>Error</h5><p>' + err.message + '</p></div>';
+        });
+}
+
+// ── Show result card ──────────────────────────────────────────
+function showResult(p) {
+    var sc = p.status === 'Safe'        ? 'safe-card'
+           : p.status === 'Near-Expiry' ? 'near-card'
+           : 'expired-card';
+
+    var badge = p.status === 'Safe'
+        ? '<span class="badge-safe">✓ Safe</span>'
+        : p.status === 'Near-Expiry'
+        ? '<span class="badge-near">⚠ Near Expiry</span>'
+        : '<span class="badge-expired">✕ Expired</span>';
+
+    var days = p.days_remaining < 0
+        ? '<span style="color:var(--danger)"><strong>' +
+          Math.abs(p.days_remaining) + '</strong> days overdue</span>'
+        : p.days_remaining === 0
+        ? '<span style="color:var(--danger)">Expires TODAY</span>'
+        : '<strong>' + p.days_remaining + '</strong> days remaining';
+
+    function infoTile(label, value) {
+        return '<div class="col-6 col-md-3">' +
+               '<div style="background:var(--body-bg);border-radius:10px;' +
+               'padding:14px;text-align:center">' +
+               '<div style="font-size:11px;color:var(--text-muted);' +
+               'font-weight:600;text-transform:uppercase;letter-spacing:1px">' +
+               label + '</div>' +
+               '<div style="font-weight:700;font-size:13px;margin-top:6px">' +
+               value + '</div></div></div>';
+    }
+
+    var card = document.getElementById('resultCard');
+    card.className = 'result-card ' + sc;
+    card.innerHTML =
+        '<div class="d-flex justify-content-between align-items-start mb-3">' +
+        '<div>' +
+        '<h4 style="font-weight:700;margin:0">' + p.name + '</h4>' +
+        '<p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">' +
+        (p.manufacturer || 'N/A') + ' &bull; ' + p.category +
+        '</p></div>' + badge + '</div>' +
+        '<div class="row g-3">' +
+        infoTile('Barcode',
+            '<span style="font-family:monospace;font-size:11px">' +
+            p.barcode + '</span>') +
+        infoTile('Expiry Date', p.exp_date) +
+        infoTile('Days Left',   days) +
+        infoTile('Stock',       p.quantity + ' ' + p.unit) +
+        '</div>';
+
+    card.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Manual Search ─────────────────────────────────────────────
+function searchProduct() {
+    var q = document.getElementById('searchInput').value.trim();
+    if (!q) return;
+
+    document.getElementById('searchResults').innerHTML =
+        '<p style="color:var(--text-muted)">Searching...</p>';
+
+    fetch('/api/search?q=' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.products || !data.products.length) {
+                document.getElementById('searchResults').innerHTML =
+                    '<p style="color:var(--danger)">No results for: ' + q + '</p>';
+                return;
+            }
+            var html = '<p style="font-size:13px;color:var(--text-muted)">' +
+                       data.products.length + ' result(s)</p>';
+            data.products.forEach(function(p) {
+                var b = p.status === 'Safe'
+                    ? '<span class="badge-safe">✓ Safe</span>'
+                    : p.status === 'Near-Expiry'
+                    ? '<span class="badge-near">⚠ Near</span>'
+                    : '<span class="badge-expired">✕ Expired</span>';
+                html +=
+                    '<div onclick=\'showResult(' + JSON.stringify(p) + ')\' ' +
+                    'style="background:var(--card-bg);border:2px solid var(--border);' +
+                    'border-radius:12px;padding:16px;margin-bottom:10px;cursor:pointer" ' +
+                    'onmouseover="this.style.borderColor=\'var(--primary)\'" ' +
+                    'onmouseout="this.style.borderColor=\'var(--border)\'">' +
+                    '<div class="d-flex justify-content-between align-items-center">' +
+                    '<div><strong>' + p.name + '</strong>' +
+                    '<div style="font-size:12px;color:var(--text-muted)">' +
+                    p.category + ' &bull; <code>' + p.barcode + '</code>' +
+                    '</div></div>' +
+                    '<div class="d-flex gap-2 align-items-center">' +
+                    '<span style="font-size:12px;color:var(--text-muted)">' +
+                    p.exp_date + '</span>' + b + '</div>' +
+                    '</div></div>';
+            });
+            document.getElementById('searchResults').innerHTML = html;
+        });
+}
+
+</script>
+
+{% endblock %}
+```
+
+---

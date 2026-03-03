@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Edit Product{% endblock %}
+{% block page_title %}Edit Product{% endblock %}
+{% block page_subtitle %}Update product information{% endblock %}
+
+{% block content %}
+<div style="max-width:680px">
+  <div class="card">
+    <div class="card-body p-4">
+
+      <form method="POST" action="{{ url_for('edit_product', pid=product.id) }}">
+        <div class="row g-3">
+
+          <div class="col-md-6">
+            <label class="form-label fw-600">Product Name *</label>
+            <input type="text" name="name" class="form-control"
+                   value="{{ product.name }}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Barcode (read-only)</label>
+            <input type="text" class="form-control" value="{{ product.barcode }}" disabled>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Category</label>
+            <select name="category" class="form-select">
+              {% for cat in ['Medicine','Supplement','Hygiene','Equipment','Food','Other'] %}
+                <option {% if cat == product.category %}selected{% endif %}>{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Manufacturer</label>
+            <input type="text" name="manufacturer" class="form-control"
+                   value="{{ product.manufacturer }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Manufacture Date</label>
+            <input type="date" name="mfg_date" class="form-control"
+                   value="{{ product.mfg_date }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Expiry Date</label>
+            <input type="date" name="exp_date" class="form-control"
+                   value="{{ product.exp_date }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Quantity</label>
+            <input type="number" name="quantity" class="form-control"
+                   value="{{ product.quantity }}" min="1">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Unit</label>
+            <select name="unit" class="form-select">
+              {% for u in ['pcs','strips','bottles','vials','packs','units'] %}
+                <option {% if u == product.unit %}selected{% endif %}>{{ u }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+        </div>
+
+        <div class="d-flex gap-3 mt-4">
+          <button type="submit" class="btn btn-primary-custom text-white">
+            <i class="material-icons-round" style="font-size:16px;vertical-align:middle">update</i>
+            Update Product
+          </button>
+          <a href="{{ url_for('products') }}" class="btn btn-outline-secondary" style="border-radius:10px">
+            Cancel
+          </a>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

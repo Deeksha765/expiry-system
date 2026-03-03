@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Add Product{% endblock %}
+{% block page_title %}Add New Product{% endblock %}
+{% block page_subtitle %}Fill in product details below{% endblock %}
+
+{% block content %}
+<div style="max-width:680px">
+  <div class="card">
+    <div class="card-body p-4">
+
+      <form method="POST" action="{{ url_for('add_product') }}">
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-600">Product Name *</label>
+            <input type="text" name="name" class="form-control" required placeholder="e.g. Paracetamol 500mg">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Barcode *</label>
+            <input type="text" name="barcode" class="form-control" required placeholder="e.g. 8901030874543">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Category *</label>
+            <select name="category" class="form-select" required>
+              <option value="">-- Select --</option>
+              <option>Medicine</option>
+              <option>Supplement</option>
+              <option>Hygiene</option>
+              <option>Equipment</option>
+              <option>Food</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Manufacturer</label>
+            <input type="text" name="manufacturer" class="form-control" placeholder="e.g. Cipla Ltd">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Manufacture Date *</label>
+            <input type="date" name="mfg_date" class="form-control" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Expiry Date *</label>
+            <input type="date" name="exp_date" class="form-control" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Quantity *</label>
+            <input type="number" name="quantity" class="form-control" value="1" min="1" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-600">Unit</label>
+            <select name="unit" class="form-select">
+              <option>pcs</option>
+              <option>strips</option>
+              <option>bottles</option>
+              <option>vials</option>
+              <option>packs</option>
+              <option>units</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="d-flex gap-3 mt-4">
+          <button type="submit" class="btn btn-success-custom text-white">
+            <i class="material-icons-round" style="font-size:16px;vertical-align:middle">save</i>
+            Save Product
+          </button>
+          <a href="{{ url_for('products') }}" class="btn btn-outline-secondary" style="border-radius:10px">
+            Cancel
+          </a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

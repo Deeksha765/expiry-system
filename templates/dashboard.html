@@ -1,0 +1,288 @@
+{% extends "base.html" %} {% block title %}Dashboard{% endblock %} {% block
+page_title %}Dashboard{% endblock %} {% block page_subtitle %}Real-time expiry
+analytics overview{% endblock %} {% block content %}
+
+<!-- ── Stat Cards ────────────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="stat-card total">
+      <div class="stat-icon">
+        <i class="material-icons-round">inventory_2</i>
+      </div>
+      <div class="stat-value">{{ analysis.total }}</div>
+      <div class="stat-label">Total Products</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-lg-3">
+    <div class="stat-card safe">
+      <div class="stat-icon">
+        <i class="material-icons-round">check_circle</i>
+      </div>
+      <div class="stat-value" style="color: var(--success)">
+        {{ analysis.safe }}
+      </div>
+      <div class="stat-label">Safe Products</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-lg-3">
+    <div class="stat-card warning">
+      <div class="stat-icon">
+        <i class="material-icons-round">warning</i>
+      </div>
+      <div class="stat-value" style="color: #f77f00">
+        {{ analysis.near_expiry }}
+      </div>
+      <div class="stat-label">Near Expiry (≤30 days)</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-lg-3">
+    <div class="stat-card danger">
+      <div class="stat-icon">
+        <i class="material-icons-round">cancel</i>
+      </div>
+      <div class="stat-value" style="color: var(--danger)">
+        {{ analysis.expired }}
+      </div>
+      <div class="stat-label">Expired Products</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Charts Row ─────────────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+  <div class="col-md-5">
+    <div class="card h-100">
+      <div class="card-header-custom">
+        <h5>
+          <i
+            class="material-icons-round"
+            style="
+              font-size: 18px;
+              vertical-align: middle;
+              color: var(--primary);
+            "
+            >donut_large</i
+          >
+          Status Distribution
+        </h5>
+      </div>
+      <div
+        class="card-body d-flex align-items-center justify-content-center"
+        style="padding: 24px"
+      >
+        <div style="max-width: 260px; width: 100%">
+          <canvas id="statusChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-7">
+    <div class="card h-100">
+      <div class="card-header-custom">
+        <h5>
+          <i
+            class="material-icons-round"
+            style="
+              font-size: 18px;
+              vertical-align: middle;
+              color: var(--primary);
+            "
+            >bar_chart</i
+          >
+          Products by Category
+        </h5>
+      </div>
+      <div class="card-body" style="padding: 24px">
+        <canvas id="categoryChart" style="max-height: 260px"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Products Table ────────────────────────────────────────── -->
+<div class="card">
+  <div
+    class="card-header-custom pb-3"
+    style="border-bottom: 1px solid var(--border)"
+  >
+    <h5>
+      <i
+        class="material-icons-round"
+        style="font-size: 18px; vertical-align: middle; color: var(--primary)"
+        >list_alt</i
+      >
+      All Products — Expiry Status
+    </h5>
+    <div class="d-flex gap-2">
+      <input
+        type="text"
+        id="tableSearch"
+        class="form-control form-control-sm"
+        placeholder="Search..."
+        style="width: 200px; border-radius: 8px"
+      />
+    </div>
+  </div>
+
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="productTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Product Name</th>
+            <th>Category</th>
+            <th>Barcode</th>
+            <th>Expiry Date</th>
+            <th>Days Left</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in analysis.products %}
+          <tr
+            class="{% if p.status == 'Safe' %}row-safe{% elif p.status == 'Near-Expiry' %}row-near{% else %}row-expired{% endif %}"
+          >
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ p.name }}</strong></td>
+            <td>
+              <span
+                style="
+                  background: rgba(67, 97, 238, 0.08);
+                  color: var(--primary);
+                  border-radius: 6px;
+                  padding: 3px 10px;
+                  font-size: 12px;
+                  font-weight: 600;
+                "
+              >
+                {{ p.category }}
+              </span>
+            </td>
+            <td><code style="font-size: 12px">{{ p.barcode }}</code></td>
+            <td>{{ p.exp_date }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <span
+                  class="days-text {% if p.days_remaining < 0 %}text-expired {% elif p.days_remaining <= 30 %}text-near {% else %}text-safe{% endif %}"
+                >
+                  {% if p.days_remaining < 0 %}
+                  <strong>{{ (p.days_remaining * -1) }}</strong> days overdue {%
+                  elif p.days_remaining == 0 %} Expires TODAY {% else %}
+                  <strong>{{ p.days_remaining }}</strong> days remaining {%
+                  endif %}
+                </span>
+              </div>
+            </td>
+            <td>
+              {% if p.status == 'Safe' %}
+              <span class="badge-safe">✓ Safe</span>
+              {% elif p.status == 'Near-Expiry' %}
+              <span class="badge-near">⚠ Near Expiry</span>
+              {% else %}
+              <span class="badge-expired">✕ Expired</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %} {% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  // ── Fetch chart data from API ─────────────────────────────
+  fetch("/api/chart-data")
+    .then((r) => r.json())
+    .then((data) => {
+      // ── Doughnut: Status Distribution ──────────────────
+      new Chart(document.getElementById("statusChart"), {
+        type: "doughnut",
+        data: {
+          labels: data.status_labels,
+          datasets: [
+            {
+              data: data.status_counts,
+              backgroundColor: ["#06d6a0", "#ffd166", "#ef476f"],
+              borderColor: ["#04b388", "#e6b800", "#d62828"],
+              borderWidth: 2,
+              hoverOffset: 8,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          cutout: "68%",
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: { padding: 16, font: { size: 13, family: "Inter" } },
+            },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.label}: ${ctx.parsed} products`,
+              },
+            },
+          },
+        },
+      });
+
+      // ── Bar: Category-wise ──────────────────────────────
+      new Chart(document.getElementById("categoryChart"), {
+        type: "bar",
+        data: {
+          labels: data.category_labels,
+          datasets: [
+            {
+              label: "Products",
+              data: data.category_counts,
+              backgroundColor: "rgba(67,97,238,0.15)",
+              borderColor: "rgba(67,97,238,0.8)",
+              borderWidth: 2,
+              borderRadius: 8,
+              borderSkipped: false,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.parsed.y} products`,
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1 },
+              grid: { color: "rgba(0,0,0,0.05)" },
+            },
+            x: { grid: { display: false } },
+          },
+        },
+      });
+    });
+
+  // ── Live table search ─────────────────────────────────────
+  document.getElementById("tableSearch").addEventListener("input", function () {
+    const val = this.value.toLowerCase();
+    const rows = document.querySelectorAll("#productTable tbody tr");
+    rows.forEach((row) => {
+      row.style.display = row.textContent.toLowerCase().includes(val)
+        ? ""
+        : "none";
+    });
+  });
+</script>
+{% endblock %}
