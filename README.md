@@ -59,17 +59,7 @@ http://127.0.0.1:5000
 | Admin | admin | admin123 |
 | User | john | user123 |
 
-## 📸 Screenshots
-Dashboard with analytics charts and expiry status overview.
-
-## 👨‍🎓 Project Info
-- BCA Final Year Project 2024-2025
 ```
-```
-3. Press Ctrl+S to save
-```
-
----
 
 ## ✅ Step 7 — Create Database SQL File
 ```
